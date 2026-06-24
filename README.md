@@ -4,6 +4,9 @@ Dark / OLED aesthetic dashboard & popup components for Firefox extensions (Manif
 
 Drop this folder into any extension and build settings pages, popups, and dashboards in minutes.
 
+<img width="2843" height="1710" alt="image" src="https://github.com/user-attachments/assets/6dc53011-8692-40c2-ab84-6da23dd1eb77" />
+
+
 ---
 
 ## Quick Start
