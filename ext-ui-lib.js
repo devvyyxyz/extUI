@@ -942,16 +942,934 @@
   }
 
   /* ═══════════════════════════════════════════════════════════
+     MODAL — Themed dialog (alert, confirm, prompt, custom)
+     ═══════════════════════════════════════════════════════════ */
+
+  var _toastContainer = null;
+  function getToastContainer() {
+    if (_toastContainer) return _toastContainer;
+    _toastContainer = createEl("div", "eui-toast-container");
+    document.body.appendChild(_toastContainer);
+    return _toastContainer;
+  }
+
+  function _closeModalOnEscape(e) {
+    if (e.key === "Escape") Modal.closeAll();
+  }
+
+  var Modal = {
+    _stack: [],
+
+    alert: function (opts) {
+      opts = opts || {};
+      return new Promise(function (resolve) {
+        var type = opts.type || "info";
+        var icons = { danger: "\u2716", success: "\u2714", warn: "\u26A0", info: "\u2139" };
+
+        var overlay = createEl("div", "eui-modal-overlay");
+        var modal = createEl("div", "eui-modal");
+        var header = createEl("div", "eui-modal-header");
+        var closeBtn = createEl("button", "eui-modal-close", "\u00D7");
+        header.appendChild(createEl("h3", null, opts.title || (type === "danger" ? "Error" : type === "warn" ? "Warning" : "Notice")));
+        header.appendChild(closeBtn);
+        modal.appendChild(header);
+
+        var body = createEl("div", "eui-modal-body");
+        if (opts.icon !== false) {
+          var iconDiv = createEl("div", "eui-modal-icon eui-modal-icon-" + type);
+          iconDiv.textContent = icons[type] || icons.info;
+          body.appendChild(iconDiv);
+        }
+        var p = createEl("p");
+        p.textContent = opts.message || "";
+        body.appendChild(p);
+        modal.appendChild(body);
+
+        var footer = createEl("div", "eui-modal-footer");
+        var okBtn = createEl("button", "eui-btn eui-btn-accent", opts.okText || "OK");
+        footer.appendChild(okBtn);
+        modal.appendChild(footer);
+        overlay.appendChild(modal);
+
+        function close() {
+          overlay.classList.remove("eui-modal-visible");
+          setTimeout(function () { overlay.remove(); }, 200);
+          document.removeEventListener("keydown", _closeModalOnEscape);
+          Modal._stack = Modal._stack.filter(function (m) { return m !== overlay; });
+          resolve(true);
+        }
+
+        okBtn.addEventListener("click", close);
+        closeBtn.addEventListener("click", close);
+        overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });
+
+        document.body.appendChild(overlay);
+        requestAnimationFrame(function () { overlay.classList.add("eui-modal-visible"); });
+        Modal._stack.push(overlay);
+        if (Modal._stack.length === 1) document.addEventListener("keydown", _closeModalOnEscape);
+
+        okBtn.focus();
+      });
+    },
+
+    confirm: function (opts) {
+      opts = opts || {};
+      return new Promise(function (resolve) {
+        var type = opts.type || "warn";
+        var icons = { danger: "\u2716", success: "\u2714", warn: "\u26A0", info: "\u2139" };
+
+        var overlay = createEl("div", "eui-modal-overlay");
+        var modal = createEl("div", "eui-modal");
+        var header = createEl("div", "eui-modal-header");
+        var closeBtn = createEl("button", "eui-modal-close", "\u00D7");
+        header.appendChild(createEl("h3", null, opts.title || "Confirm"));
+        header.appendChild(closeBtn);
+        modal.appendChild(header);
+
+        var body = createEl("div", "eui-modal-body");
+        if (opts.icon !== false) {
+          var iconDiv = createEl("div", "eui-modal-icon eui-modal-icon-" + type);
+          iconDiv.textContent = icons[type] || icons.warn;
+          body.appendChild(iconDiv);
+        }
+        var p = createEl("p");
+        p.textContent = opts.message || "Are you sure?";
+        body.appendChild(p);
+        modal.appendChild(body);
+
+        var footer = createEl("div", "eui-modal-footer");
+        var cancelBtn = createEl("button", "eui-btn", opts.cancelText || "Cancel");
+        var okBtn = createEl("button", "eui-btn" + (type === "danger" ? " eui-btn-danger" : " eui-btn-accent"), opts.okText || "Confirm");
+        footer.appendChild(cancelBtn);
+        footer.appendChild(okBtn);
+        modal.appendChild(footer);
+        overlay.appendChild(modal);
+
+        function close(result) {
+          overlay.classList.remove("eui-modal-visible");
+          setTimeout(function () { overlay.remove(); }, 200);
+          document.removeEventListener("keydown", _closeModalOnEscape);
+          Modal._stack = Modal._stack.filter(function (m) { return m !== overlay; });
+          resolve(result);
+        }
+
+        okBtn.addEventListener("click", function () { close(true); });
+        cancelBtn.addEventListener("click", function () { close(false); });
+        closeBtn.addEventListener("click", function () { close(false); });
+        overlay.addEventListener("click", function (e) { if (e.target === overlay) close(false); });
+
+        document.body.appendChild(overlay);
+        requestAnimationFrame(function () { overlay.classList.add("eui-modal-visible"); });
+        Modal._stack.push(overlay);
+        if (Modal._stack.length === 1) document.addEventListener("keydown", _closeModalOnEscape);
+
+        okBtn.focus();
+      });
+    },
+
+    prompt: function (opts) {
+      opts = opts || {};
+      return new Promise(function (resolve) {
+        var overlay = createEl("div", "eui-modal-overlay");
+        var modal = createEl("div", "eui-modal");
+        var header = createEl("div", "eui-modal-header");
+        var closeBtn = createEl("button", "eui-modal-close", "\u00D7");
+        header.appendChild(createEl("h3", null, opts.title || "Input"));
+        header.appendChild(closeBtn);
+        modal.appendChild(header);
+
+        var body = createEl("div", "eui-modal-body");
+        var p = createEl("p");
+        p.textContent = opts.message || "";
+        body.appendChild(p);
+        var input = createEl("input", "eui-input eui-modal-prompt-input");
+        input.type = "text";
+        input.value = opts.defaultValue || "";
+        input.placeholder = opts.placeholder || "";
+        body.appendChild(input);
+        modal.appendChild(body);
+
+        var footer = createEl("div", "eui-modal-footer");
+        var cancelBtn = createEl("button", "eui-btn", "Cancel");
+        var okBtn = createEl("button", "eui-btn eui-btn-accent", "OK");
+        footer.appendChild(cancelBtn);
+        footer.appendChild(okBtn);
+        modal.appendChild(footer);
+        overlay.appendChild(modal);
+
+        function close(result) {
+          overlay.classList.remove("eui-modal-visible");
+          setTimeout(function () { overlay.remove(); }, 200);
+          document.removeEventListener("keydown", _closeModalOnEscape);
+          Modal._stack = Modal._stack.filter(function (m) { return m !== overlay; });
+          resolve(result);
+        }
+
+        function submit() { close(input.value); }
+
+        okBtn.addEventListener("click", submit);
+        cancelBtn.addEventListener("click", function () { close(null); });
+        closeBtn.addEventListener("click", function () { close(null); });
+        overlay.addEventListener("click", function (e) { if (e.target === overlay) close(null); });
+        input.addEventListener("keydown", function (e) { if (e.key === "Enter") submit(); });
+
+        document.body.appendChild(overlay);
+        requestAnimationFrame(function () { overlay.classList.add("eui-modal-visible"); });
+        Modal._stack.push(overlay);
+        if (Modal._stack.length === 1) document.addEventListener("keydown", _closeModalOnEscape);
+
+        input.focus();
+        input.select();
+      });
+    },
+
+    closeAll: function () {
+      Modal._stack.slice().forEach(function (overlay) {
+        overlay.classList.remove("eui-modal-visible");
+        setTimeout(function () { overlay.remove(); }, 200);
+      });
+      Modal._stack = [];
+      document.removeEventListener("keydown", _closeModalOnEscape);
+    },
+  };
+
+  /* ═══════════════════════════════════════════════════════════
+     TOAST — Non-blocking notifications
+     ═══════════════════════════════════════════════════════════ */
+
+  var Toast = {
+    _icons: { danger: "\u2716", success: "\u2714", warn: "\u26A0", info: "\u2139" },
+
+    show: function (message, type, duration) {
+      type = type || "info";
+      duration = duration || 4000;
+      var container = getToastContainer();
+
+      var toast = createEl("div", "eui-toast eui-toast-" + type);
+      var iconSpan = createEl("span", "eui-toast-icon eui-toast-icon-" + type);
+      iconSpan.textContent = Toast._icons[type] || Toast._icons.info;
+      toast.appendChild(iconSpan);
+
+      var msg = createEl("span", "eui-toast-msg");
+      msg.textContent = message;
+      toast.appendChild(msg);
+
+      var closeBtn = createEl("button", "eui-toast-close", "\u00D7");
+      toast.appendChild(closeBtn);
+
+      container.appendChild(toast);
+      requestAnimationFrame(function () { toast.classList.add("eui-toast-visible"); });
+
+      var timer = setTimeout(function () { hideToast(); }, duration);
+
+      function hideToast() {
+        clearTimeout(timer);
+        toast.classList.remove("eui-toast-visible");
+        toast.classList.add("eui-toast-hiding");
+        setTimeout(function () { toast.remove(); }, 300);
+      }
+
+      closeBtn.addEventListener("click", hideToast);
+
+      return { hide: hideToast };
+    },
+  };
+
+  /* ═══════════════════════════════════════════════════════════
+     ABOUT PANEL — Extension info + changelog
+     ═══════════════════════════════════════════════════════════ */
+
+  function createAbout(opts) {
+    opts = opts || {};
+    var wrap = createEl("div", "eui-about");
+
+    if (opts.logo) {
+      var logo = createEl("img", "eui-about-logo");
+      logo.src = opts.logo;
+      logo.alt = "";
+      wrap.appendChild(logo);
+    }
+
+    wrap.appendChild(createEl("h2", "eui-about-name", opts.name || "My Extension"));
+
+    if (opts.version) {
+      wrap.appendChild(createEl("p", "eui-about-version", opts.version));
+    }
+
+    if (opts.description) {
+      wrap.appendChild(createEl("p", "eui-about-desc", opts.description));
+    }
+
+    if (opts.links && opts.links.length) {
+      var linksDiv = createEl("div", "eui-about-links");
+      opts.links.forEach(function (link) {
+        var a = createEl("a", "eui-about-link");
+        a.href = link.url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.textContent = link.label;
+        if (link.icon) {
+          var iconWrap = document.createElement("span");
+          iconWrap.innerHTML = link.icon;
+          while (iconWrap.firstChild) a.insertBefore(iconWrap.firstChild, a.firstChild);
+        }
+        linksDiv.appendChild(a);
+      });
+      wrap.appendChild(linksDiv);
+    }
+
+    // Changelog
+    if (opts.changelog && opts.changelog.length) {
+      var cl = createEl("div", "eui-changelog");
+      cl.appendChild(createEl("h4", null, "Changelog"));
+      var list = createEl("div", "eui-changelog-list");
+      opts.changelog.forEach(function (entry) {
+        var el = createEl("div", "eui-changelog-entry");
+        el.appendChild(createEl("div", "eui-changelog-version", entry.version));
+        if (entry.date) {
+          el.appendChild(createEl("div", "eui-changelog-date", entry.date));
+        }
+        var ul = createEl("ul", "eui-changelog-changes");
+        (entry.changes || []).forEach(function (c) {
+          ul.appendChild(createEl("li", null, c));
+        });
+        el.appendChild(ul);
+        list.appendChild(el);
+      });
+      cl.appendChild(list);
+      wrap.appendChild(cl);
+    }
+
+    if (opts.container) opts.container.appendChild(wrap);
+    return { element: wrap };
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     BANNER — Notification / permission banner
+     ═══════════════════════════════════════════════════════════ */
+
+  function createBanner(opts) {
+    opts = opts || {};
+    var type = opts.type || "info";
+    var bannerIcons = { warn: "\u26A0", info: "\u2139", danger: "\u2716", success: "\u2714" };
+
+    var banner = createEl("div", "eui-banner eui-banner-" + type);
+
+    var iconEl = createEl("span", "eui-banner-icon");
+    iconEl.textContent = bannerIcons[type] || bannerIcons.info;
+    banner.appendChild(iconEl);
+
+    var content = createEl("div", "eui-banner-content");
+    if (opts.title) content.appendChild(createEl("div", "eui-banner-title", opts.title));
+    if (opts.description) content.appendChild(createEl("div", "eui-banner-desc", opts.description));
+
+    if (opts.actions && opts.actions.length) {
+      var actions = createEl("div", "eui-banner-actions");
+      opts.actions.forEach(function (act) {
+        var btn = createEl("button", "eui-btn eui-btn-sm" + (act.accent ? " eui-btn-accent" : ""), act.label);
+        if (act.onClick) btn.addEventListener("click", function (e) { e.stopPropagation(); act.onClick(); });
+        actions.appendChild(btn);
+      });
+      content.appendChild(actions);
+    }
+
+    banner.appendChild(content);
+
+    if (opts.dismissable !== false) {
+      var dismissBtn = createEl("button", "eui-banner-dismiss", "\u00D7");
+      dismissBtn.addEventListener("click", function () {
+        banner.style.opacity = "0";
+        banner.style.transform = "translateY(-8px)";
+        banner.style.transition = "opacity .2s, transform .2s";
+        setTimeout(function () { banner.remove(); }, 200);
+      });
+      banner.appendChild(dismissBtn);
+    }
+
+    if (opts.container) opts.container.appendChild(banner);
+    return { element: banner, remove: function () { banner.remove(); } };
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     HORIZONTAL TABS
+     ═══════════════════════════════════════════════════════════ */
+
+  function createHTabs(opts) {
+    opts = opts || {};
+    var wrap = createEl("div");
+    var tabsBar = createEl("div", "eui-htabs");
+    var panels = {};
+
+    (opts.tabs || []).forEach(function (tab, i) {
+      var btn = createEl("button", "eui-htab" + (i === 0 ? " active" : ""));
+      btn.textContent = tab.label;
+      btn.dataset.idx = String(i);
+      tabsBar.appendChild(btn);
+
+      var panel = createEl("div", "eui-htab-panel" + (i === 0 ? " active" : ""));
+      if (tab.content) panel.appendChild(tab.content);
+      wrap.appendChild(panel);
+      panels[tab.id || String(i)] = panel;
+    });
+
+    wrap.insertBefore(tabsBar, wrap.firstChild);
+
+    tabsBar.addEventListener("click", function (e) {
+      var btn = e.target.closest(".eui-htab");
+      if (!btn) return;
+      var idx = btn.dataset.idx;
+      tabsBar.querySelectorAll(".eui-htab").forEach(function (b) { b.classList.remove("active"); });
+      wrap.querySelectorAll(".eui-htab-panel").forEach(function (p) { p.classList.remove("active"); });
+      btn.classList.add("active");
+      wrap.querySelectorAll(".eui-htab-panel")[idx].classList.add("active");
+    });
+
+    if (opts.container) opts.container.appendChild(wrap);
+    return { element: wrap, switchTab: function (id) {
+      var tabIds = (opts.tabs || []).map(function (t) { return t.id; });
+      var idx = tabIds.indexOf(id);
+      if (idx < 0) return;
+      tabsBar.querySelectorAll(".eui-htab").forEach(function (b) { b.classList.remove("active"); });
+      wrap.querySelectorAll(".eui-htab-panel").forEach(function (p) { p.classList.remove("active"); });
+      tabsBar.children[idx].classList.add("active");
+      wrap.querySelectorAll(".eui-htab-panel")[idx].classList.add("active");
+    }};
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     ACCORDION
+     ═══════════════════════════════════════════════════════════ */
+
+  function createAccordion(opts) {
+    opts = opts || {};
+    var wrap = createEl("div", "eui-accordion");
+
+    (opts.items || []).forEach(function (item, i) {
+      var el = createEl("div", "eui-accordion-item" + (item.open ? " eui-accordion-open" : ""));
+
+      var trigger = createEl("button", "eui-accordion-trigger");
+      trigger.appendChild(createEl("span", null, item.title));
+      var chevron = createEl("span", "eui-accordion-chevron", "\u25B6");
+      trigger.appendChild(chevron);
+      el.appendChild(trigger);
+
+      var body = createEl("div", "eui-accordion-body");
+      if (item.content) {
+        if (typeof item.content === "string") {
+          body.textContent = item.content;
+        } else {
+          body.appendChild(item.content);
+        }
+      }
+      el.appendChild(body);
+
+      trigger.addEventListener("click", function () {
+        var isOpen = el.classList.contains("eui-accordion-open");
+        // Close all if single mode
+        if (opts.single) {
+          wrap.querySelectorAll(".eui-accordion-open").forEach(function (a) {
+            a.classList.remove("eui-accordion-open");
+          });
+        }
+        el.classList.toggle("eui-accordion-open", !isOpen);
+      });
+
+      wrap.appendChild(el);
+    });
+
+    if (opts.container) opts.container.appendChild(wrap);
+    return { element: wrap };
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     CARD GRID
+     ═══════════════════════════════════════════════════════════ */
+
+  function createCardGrid(opts) {
+    opts = opts || {};
+    var grid = createEl("div", "eui-card-grid");
+
+    (opts.cards || []).forEach(function (card) {
+      var el;
+      if (card.url) {
+        el = createEl("a", "eui-card");
+        el.href = card.url;
+        el.target = "_blank";
+        el.rel = "noopener";
+      } else {
+        el = createEl("div", "eui-card");
+      }
+
+      if (card.image) {
+        var img = createEl("img", "eui-card-img");
+        img.src = card.image;
+        img.alt = card.title || "";
+        img.loading = "lazy";
+        el.appendChild(img);
+      }
+
+      var body = createEl("div", "eui-card-body");
+      body.appendChild(createEl("div", "eui-card-title", card.title || ""));
+      if (card.description) body.appendChild(createEl("div", "eui-card-desc", card.description));
+      el.appendChild(body);
+
+      if (card.footer || card.tag) {
+        var footer = createEl("div", "eui-card-footer");
+        if (card.tag) {
+          var tag = createEl("span", "eui-card-tag", card.tag);
+          footer.appendChild(tag);
+        }
+        if (card.footer) {
+          var footerText = createEl("span", null, card.footer);
+          footerText.style.marginLeft = "auto";
+          footer.appendChild(footerText);
+        }
+        el.appendChild(footer);
+      }
+
+      if (card.onClick && !card.url) {
+        el.style.cursor = "pointer";
+        el.addEventListener("click", card.onClick);
+      }
+
+      grid.appendChild(el);
+    });
+
+    if (opts.container) opts.container.appendChild(grid);
+    return { element: grid };
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     STATS CARDS
+     ═══════════════════════════════════════════════════════════ */
+
+  function createStatsGrid(opts) {
+    opts = opts || {};
+    var grid = createEl("div", "eui-stats-grid");
+
+    (opts.stats || []).forEach(function (stat) {
+      var card = createEl("div", "eui-stat-card");
+      card.appendChild(createEl("div", "eui-stat-value", stat.value));
+      card.appendChild(createEl("div", "eui-stat-label", stat.label));
+      if (stat.change) {
+        var isUp = stat.change.charAt(0) === "+" || stat.change > 0;
+        var changeEl = createEl("div", "eui-stat-change " + (isUp ? "eui-stat-change-up" : "eui-stat-change-down"));
+        changeEl.textContent = (isUp ? "\u2191 " : "\u2193 ") + stat.change;
+        card.appendChild(changeEl);
+      }
+      grid.appendChild(card);
+    });
+
+    if (opts.container) opts.container.appendChild(grid);
+    return { element: grid };
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     DATA TABLE
+     ═══════════════════════════════════════════════════════════ */
+
+  function createTable(opts) {
+    opts = opts || {};
+    var wrap = createEl("div", "eui-table-wrap");
+    var table = createEl("table", "eui-table");
+
+    // Header
+    var thead = createEl("thead");
+    var headRow = createEl("tr");
+    (opts.columns || []).forEach(function (col, i) {
+      var th = createEl("th", col.sortable ? "eui-table-sortable" : "");
+      th.textContent = col.label || "";
+      if (col.sortable) {
+        var arrow = createEl("span", "eui-table-sort-arrow");
+        arrow.textContent = "\u2195";
+        th.appendChild(arrow);
+        th.addEventListener("click", function () {
+          var current = th.dataset.sort || "none";
+          var dir = current === "asc" ? "desc" : "asc";
+          thead.querySelectorAll(".eui-table-sort-arrow").forEach(function (a) {
+            a.classList.remove("active");
+            a.textContent = "\u2195";
+          });
+          arrow.textContent = dir === "asc" ? "\u2191" : "\u2193";
+          arrow.classList.add("active");
+          th.dataset.sort = dir;
+          if (opts.onSort) opts.onSort(col.key || i, dir);
+        });
+      }
+      headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    // Body
+    var tbody = createEl("tbody");
+    function renderRows(rows) {
+      tbody.textContent = "";
+      if (!rows || rows.length === 0) {
+        var tr = createEl("tr");
+        var td = createEl("td", "eui-table-empty");
+        td.colSpan = (opts.columns || []).length;
+        td.textContent = opts.emptyText || "No data.";
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+      }
+      rows.forEach(function (row) {
+        var tr = createEl("tr");
+        (opts.columns || []).forEach(function (col, i) {
+          var td = createEl("td");
+          var val = col.key ? row[col.key] : (row[i] != null ? row[i] : "");
+          if (col.render) {
+            col.render(td, val, row);
+          } else {
+            td.textContent = val != null ? String(val) : "";
+          }
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+    }
+
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    renderRows(opts.rows);
+
+    if (opts.container) opts.container.appendChild(wrap);
+    return { element: wrap, setRows: renderRows };
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     SEARCH FILTER
+     ═══════════════════════════════════════════════════════════ */
+
+  function createFilter(opts) {
+    opts = opts || {};
+    var wrap = createEl("div", "eui-filter-row");
+
+    var icon = createEl("span", "eui-filter-icon");
+    var iconSvg = document.createElement("span");
+    iconSvg.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+    while (iconSvg.firstChild) icon.appendChild(iconSvg.firstChild);
+    wrap.appendChild(icon);
+
+    var input = createEl("input", "eui-filter-input");
+    input.type = "text";
+    input.placeholder = opts.placeholder || "Filter\u2026";
+    wrap.appendChild(input);
+
+    var countSpan = createEl("span", "eui-filter-count");
+    wrap.appendChild(countSpan);
+
+    function applyFilter() {
+      var query = input.value.toLowerCase().trim();
+      var items = (opts.target || wrap.parentElement).querySelectorAll(opts.selector || ".eui-sortable-item, .eui-history-row, .eui-card, [data-filterable]");
+      var visible = 0;
+      items.forEach(function (item) {
+        var text = (item.textContent || "").toLowerCase();
+        var show = !query || text.indexOf(query) !== -1;
+        item.classList.toggle("eui-filter-hidden", !show);
+        if (show) visible++;
+      });
+      countSpan.textContent = query ? visible + "/" + items.length : "";
+      if (opts.onFilter) opts.onFilter(query, visible);
+    }
+
+    input.addEventListener("input", applyFilter);
+
+    if (opts.container) opts.container.appendChild(wrap);
+    return { element: wrap, apply: applyFilter, input: input };
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     CODE BLOCK
+     ═══════════════════════════════════════════════════════════ */
+
+  function createCodeBlock(opts) {
+    opts = opts || {};
+    var block = createEl("div", "eui-code-block");
+
+    var header = createEl("div", "eui-code-header");
+    if (opts.language) header.appendChild(createEl("span", "eui-code-lang", opts.language));
+
+    var copyBtn = createEl("button", "eui-code-copy", "Copy");
+    copyBtn.addEventListener("click", function () {
+      var code = opts.code || "";
+      try {
+        navigator.clipboard.writeText(code).then(function () {
+          copyBtn.textContent = "Copied!";
+          copyBtn.classList.add("eui-code-copied");
+          setTimeout(function () {
+            copyBtn.textContent = "Copy";
+            copyBtn.classList.remove("eui-code-copied");
+          }, 2000);
+        });
+      } catch (_) {}
+    });
+    header.appendChild(copyBtn);
+    block.appendChild(header);
+
+    var body = createEl("div", "eui-code-body");
+    var pre = createEl("pre");
+    pre.textContent = opts.code || "";
+    body.appendChild(pre);
+    block.appendChild(body);
+
+    if (opts.container) opts.container.appendChild(block);
+    return { element: block };
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     PROGRESS BAR
+     ═══════════════════════════════════════════════════════════ */
+
+  function createProgress(opts) {
+    opts = opts || {};
+    var wrap = createEl("div");
+
+    var bar = createEl("div", "eui-progress");
+    var fill = createEl("div", "eui-progress-bar" + (opts.striped ? " eui-progress-bar-striped" : ""));
+    fill.style.width = (opts.value || 0) + "%";
+    bar.appendChild(fill);
+    wrap.appendChild(bar);
+
+    if (opts.showLabel !== false) {
+      var label = createEl("div", "eui-progress-label");
+      var leftLabel = createEl("span", null, opts.leftLabel || "");
+      var rightLabel = createEl("span", null, (opts.value || 0) + "%");
+      label.appendChild(leftLabel);
+      label.appendChild(rightLabel);
+      wrap.appendChild(label);
+
+      return {
+        element: wrap,
+        setValue: function (v) {
+          fill.style.width = v + "%";
+          rightLabel.textContent = v + "%";
+        },
+      };
+    }
+
+    return {
+      element: wrap,
+      setValue: function (v) { fill.style.width = v + "%"; },
+    };
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     SKELETON / LOADING HELPERS
+     ═══════════════════════════════════════════════════════════ */
+
+  var Skeleton = {
+    text: function (width) {
+      var el = createEl("div", "eui-skeleton eui-skeleton-text");
+      if (width) el.style.width = width;
+      return el;
+    },
+    heading: function (width) {
+      var el = createEl("div", "eui-skeleton eui-skeleton-heading");
+      if (width) el.style.width = width;
+      return el;
+    },
+    avatar: function () {
+      return createEl("div", "eui-skeleton eui-skeleton-avatar");
+    },
+    row: function () {
+      var row = createEl("div", "eui-skeleton-row");
+      row.appendChild(createEl("div", "eui-skeleton eui-skeleton-avatar"));
+      var info = createEl("div", "eui-skeleton-row-info");
+      info.appendChild(createEl("div", "eui-skeleton eui-skeleton-text", " "));
+      info.appendChild(createEl("div", "eui-skeleton eui-skeleton-text"));
+      row.appendChild(info);
+      return row;
+    },
+    rows: function (count) {
+      var frag = document.createDocumentFragment();
+      for (var i = 0; i < (count || 3); i++) frag.appendChild(Skeleton.row());
+      return frag;
+    },
+  };
+
+  /* ═══════════════════════════════════════════════════════════
+     QUICK ACTIONS GRID (popup)
+     ═══════════════════════════════════════════════════════════ */
+
+  function createQuickActions(opts) {
+    opts = opts || {};
+    var grid = createEl("div", "eui-actions-grid" + (opts.columns === 2 ? " eui-actions-grid-2" : ""));
+
+    (opts.actions || []).forEach(function (act) {
+      var card = createEl("div", "eui-action-card");
+      card.title = act.label || "";
+      card.appendChild(createEl("span", "eui-action-card-icon", act.icon || "\u25CF"));
+      card.appendChild(createEl("span", "eui-action-card-label", act.label || ""));
+      card.addEventListener("click", function () { if (act.onClick) act.onClick(act.id); });
+      grid.appendChild(card);
+    });
+
+    if (opts.container) opts.container.appendChild(grid);
+    return { element: grid };
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     SEARCH BAR (popup)
+     ═══════════════════════════════════════════════════════════ */
+
+  function createSearchBar(opts) {
+    opts = opts || {};
+    var bar = createEl("div", "eui-search-bar");
+    var wrap = createEl("div", "eui-search-wrap");
+
+    var icon = createEl("span", "eui-search-icon");
+    var iconSvg = document.createElement("span");
+    iconSvg.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+    while (iconSvg.firstChild) icon.appendChild(iconSvg.firstChild);
+    wrap.appendChild(icon);
+
+    var input = createEl("input", "eui-search-input");
+    input.type = "text";
+    input.placeholder = opts.placeholder || "Search\u2026";
+    wrap.appendChild(input);
+    bar.appendChild(wrap);
+
+    var resultsDiv = createEl("div", "eui-search-results");
+    resultsDiv.style.display = "none";
+    bar.appendChild(resultsDiv);
+
+    var activeIdx = -1;
+
+    function showResults(items, query) {
+      resultsDiv.textContent = "";
+      if (!items || items.length === 0) {
+        resultsDiv.style.display = "block";
+        resultsDiv.appendChild(createEl("div", "eui-search-no-results", "No results"));
+        return;
+      }
+      resultsDiv.style.display = "block";
+      activeIdx = -1;
+      items.forEach(function (item, i) {
+        var el = createEl("div", "eui-search-result");
+        if (opts.renderItem) {
+          opts.renderItem(el, item, query);
+        } else {
+          el.textContent = item.label || item.title || String(item);
+        }
+        el.dataset.idx = String(i);
+        el.addEventListener("click", function () {
+          resultsDiv.style.display = "none";
+          if (opts.onSelect) opts.onSelect(item);
+        });
+        el.addEventListener("mouseenter", function () {
+          resultsDiv.querySelectorAll(".eui-search-result").forEach(function (r) { r.classList.remove("active"); });
+          el.classList.add("active");
+          activeIdx = i;
+        });
+        resultsDiv.appendChild(el);
+      });
+    }
+
+    input.addEventListener("input", function () {
+      var q = input.value.trim();
+      if (!q) { resultsDiv.style.display = "none"; return; }
+      if (opts.onSearch) opts.onSearch(q, showResults);
+    });
+
+    input.addEventListener("keydown", function (e) {
+      var results = resultsDiv.querySelectorAll(".eui-search-result");
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        activeIdx = Math.min(activeIdx + 1, results.length - 1);
+        results.forEach(function (r, i) { r.classList.toggle("active", i === activeIdx); });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        activeIdx = Math.max(activeIdx - 1, 0);
+        results.forEach(function (r, i) { r.classList.toggle("active", i === activeIdx); });
+      } else if (e.key === "Enter") {
+        if (activeIdx >= 0 && results[activeIdx]) {
+          results[activeIdx].click();
+        } else if (opts.onSearch) {
+          opts.onSearch(input.value.trim(), showResults);
+        }
+      } else if (e.key === "Escape") {
+        resultsDiv.style.display = "none";
+      }
+    });
+
+    // Close on outside click
+    document.addEventListener("click", function (e) {
+      if (!bar.contains(e.target)) resultsDiv.style.display = "none";
+    });
+
+    if (opts.container) opts.container.insertBefore(bar, opts.container.firstChild);
+    return { element: bar, input: input, showResults: showResults };
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     COLOR PICKER
+     ═══════════════════════════════════════════════════════════ */
+
+  function createColorPicker(opts) {
+    opts = opts || {};
+    var wrap = createEl("div", "eui-color-row");
+
+    var swatch = createEl("div", "eui-color-swatch");
+    swatch.style.background = opts.value || "#58a6ff";
+    var colorInput = createEl("input");
+    colorInput.type = "color";
+    colorInput.value = opts.value || "#58a6ff";
+    swatch.appendChild(colorInput);
+    wrap.appendChild(swatch);
+
+    var hexWrap = createEl("div", "eui-color-hex");
+    var hexInput = createEl("input", "eui-input");
+    hexInput.type = "text";
+    hexInput.value = (opts.value || "#58a6ff").toUpperCase();
+    hexInput.maxLength = 7;
+    hexInput.spellcheck = false;
+    hexWrap.appendChild(hexInput);
+    wrap.appendChild(hexWrap);
+
+    if (opts.container) opts.container.appendChild(wrap);
+
+    return {
+      element: wrap,
+      getValue: function () { return colorInput.value; },
+      setValue: function (hex) {
+        colorInput.value = hex;
+        swatch.style.background = hex;
+        hexInput.value = hex.toUpperCase();
+      },
+      onChange: function (cb) {
+        colorInput.addEventListener("input", function () {
+          swatch.style.background = colorInput.value;
+          hexInput.value = colorInput.value.toUpperCase();
+          cb(colorInput.value);
+        });
+        hexInput.addEventListener("change", function () {
+          var v = hexInput.value.trim();
+          if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+            colorInput.value = v;
+            swatch.style.background = v;
+            cb(v);
+          }
+        });
+      },
+    };
+  }
+
+  /* ═══════════════════════════════════════════════════════════
      EXPORT NAMESPACE
      ═══════════════════════════════════════════════════════════ */
 
   var ExtUI = {
-    // Components
+    // Class-based components
     Dashboard: Dashboard,
     TabPanel: TabPanel,
     SortableList: SortableList,
     HistoryView: HistoryView,
     Popup: Popup,
+    Modal: Modal,
+    Toast: Toast,
+    Skeleton: Skeleton,
 
     // Factory functions
     createSettingRow: createSettingRow,
@@ -959,6 +1877,19 @@
     createShortcutsList: createShortcutsList,
     createSection: createSection,
     createPreview: createPreview,
+    createAbout: createAbout,
+    createBanner: createBanner,
+    createHTabs: createHTabs,
+    createAccordion: createAccordion,
+    createCardGrid: createCardGrid,
+    createStatsGrid: createStatsGrid,
+    createTable: createTable,
+    createFilter: createFilter,
+    createCodeBlock: createCodeBlock,
+    createProgress: createProgress,
+    createQuickActions: createQuickActions,
+    createSearchBar: createSearchBar,
+    createColorPicker: createColorPicker,
 
     // Helpers
     timeAgo: timeAgo,
