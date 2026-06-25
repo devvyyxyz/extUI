@@ -4,9 +4,6 @@ Dark / OLED aesthetic dashboard & popup components for Firefox extensions (Manif
 
 Drop this folder into any extension and build settings pages, popups, and dashboards in minutes.
 
-<img width="2843" height="1710" alt="image" src="https://github.com/user-attachments/assets/6dc53011-8692-40c2-ab84-6da23dd1eb77" />
-
-
 ---
 
 ## Quick Start
@@ -23,13 +20,13 @@ Drop this folder into any extension and build settings pages, popups, and dashbo
 
 ---
 
-## Components (30 total)
+## Components (32 total)
 
 ### Layout
 
 | Component | Description |
 |---|---|
-| `new ExtUI.Dashboard(opts)` | Sidebar + tab router with brand header |
+| `new ExtUI.Dashboard(opts)` | Sidebar + tab router with brand, light mode, accent colour, creator link, auto-discovered extensions |
 | `new ExtUI.TabPanel(opts)` | Named tab panel for Dashboard |
 | `ExtUI.createHTabs(opts)` | Horizontal inline tabs (no sidebar) |
 | `ExtUI.createSection(opts)` | Generic section card |
@@ -82,6 +79,13 @@ Drop this folder into any extension and build settings pages, popups, and dashbo
 | `ExtUI.createProgress(opts)` | Progress bar (optionally striped + labeled) |
 | `ExtUI.Skeleton` | Loading placeholder helpers (text, heading, avatar, row, rows) |
 
+### AMO / Addon Profile
+
+| Component | Description |
+|---|---|
+| `ExtUI.createAddonList(opts)` | AMO-style addon list with profile header, cards, star ratings, stats footer |
+| `ExtUI.createStarRating(rating, reviews)` | Star rating display (filled/empty stars or "No ratings") |
+
 ### Utility
 
 | Component | Description |
@@ -98,6 +102,43 @@ ExtUI.timeAgo(1700000000000);     // "2d ago"
 ExtUI.truncate('long string', 10); // "long stri..."
 ExtUI.escapeHtml('<script>');      // "&lt;script&gt;"
 ExtUI.createEl('div', 'my-class', 'Hello'); // DOM element
+```
+
+---
+
+## Dashboard Options
+
+```js
+var dash = new ExtUI.Dashboard({
+  // ── Branding ───────────────────────────────
+  brandIcon: '<svg ...>',  // SVG string (injected as DOM)
+  brandImage: 'icons/icon.png', // image URL (alternative to brandIcon SVG)
+  brandTitle: 'My Extension',
+
+  // ── Tabs ──────────────────────────────────
+  tabs: [
+    { id: 'general',  label: 'General', icon: '<svg ...>' },
+    { id: 'settings', label: 'Settings', icon: '<svg ...>' },
+  ],
+  defaultTab: 'general',
+
+  // ── Theme ───────────────────────────────────
+  mode: 'dark',             // 'dark' (default) or 'light' — pure #000 / #fff
+  accentColor: '#6c5ce7',  // overrides --eui-accent (auto-computes hover/dim)
+  sidebarWidth: 240,        // overrides --eui-sidebar-w (default 240)
+
+  // ── Sidebar extras ────────────────────────
+  showMyExtensions: true,  // auto-discovers other installed extensions via management API
+  creatorName: 'devvyyxyz',
+  creatorLink: 'https://addons.mozilla.org/en-GB/firefox/user/18887466/',
+});
+```
+
+**Light mode** — set `mode: 'light'` to switch to pure white backgrounds with dark text. The mode is applied via `data-eui-mode="light"` on `<html>`, so you can also toggle it at runtime:
+```js
+// Toggle between modes
+document.documentElement.setAttribute('data-eui-mode', 'light');
+document.documentElement.removeAttribute('data-eui-mode'); // back to dark
 ```
 
 ---
@@ -366,6 +407,43 @@ picker.onChange(function(hex) {
 });
 ```
 
+### Star Rating
+
+```js
+// Returns a DOM element — use standalone or inside cards
+var ratingEl = ExtUI.createStarRating(4, 12);  // 4/5 stars (12 reviews)
+var noRating = ExtUI.createStarRating(null, 0); // "No ratings"
+```
+
+### AMO Addon List
+
+```js
+ExtUI.createAddonList({
+  container: someEl,
+  profile: {
+    avatar: 'https://addons.mozilla.org/user-media/userpics/.../pic.png',
+    badge: 'DEVELOPER',
+    name: 'devvyyxyz',
+    subtitle: 'Firefox Add-ons Author',
+    linkUrl: 'https://addons.mozilla.org/en-GB/firefox/user/18887466/',
+    linkLabel: 'AMO Profile ',
+  },
+  addons: [
+    {
+      name: 'My Extension',
+      description: 'A short description.',
+      icon: 'https://addons.mozilla.org/user-media/addon_icons/.../64.png',
+      url: 'https://addons.mozilla.org/en-GB/firefox/addon/my-extension/',
+      users: 522,
+      rating: 5,       // null or omit for "No ratings"
+      reviews: 1,
+    },
+  ],
+});
+```
+
+Automatically computes and displays aggregate footer stats (total add-ons, users, reviews, rated count).
+
 ---
 
 ## Theming
@@ -402,9 +480,10 @@ All component classes use the `eui-` prefix to avoid conflicts with your extensi
 
 ```
 ext-ui-lib/
-├── ext-ui-lib.css   — Full design system (~2100 lines)
-├── ext-ui-lib.js    — All 30 components (~1900 lines)
-└── README.md        — This file
+├── ext-ui-lib.css   — Full design system (~2330 lines)
+├── ext-ui-lib.js    — All 32 components (~2030 lines)
+├── README.md        — This file
+└── CHANGELOG.md     — Release history
 ```
 
 ---

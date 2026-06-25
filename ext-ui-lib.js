@@ -73,29 +73,66 @@
     var self = this;
     opts = opts || {};
 
+    // ── Apply mode (light/dark) ──
+    if (opts.mode === "light") {
+      document.documentElement.setAttribute("data-eui-mode", "light");
+    }
+
+    // ── Apply custom accent colour ──
+    if (opts.accentColor) {
+      document.documentElement.style.setProperty("--eui-accent", opts.accentColor);
+      // Compute hover (lighten) and dim (alpha)
+      var r = parseInt(opts.accentColor.slice(1, 3), 16);
+      var g = parseInt(opts.accentColor.slice(3, 5), 16);
+      var b = parseInt(opts.accentColor.slice(5, 7), 16);
+      document.documentElement.style.setProperty("--eui-accent-hover",
+        "rgb(" + Math.min(255, r + 25) + "," + Math.min(255, g + 25) + "," + Math.min(255, b +) + ")");
+      document.documentElement.style.setProperty("--eui-accent-dim",
+        "rgba(" + r + "," + g + "," + b + ",.12)");
+    }
+
+    // ── Custom sidebar width ──
+    if (opts.sidebarWidth) {
+      document.documentElement.style.setProperty("--eui-sidebar-w", opts.sidebarWidth + "px");
+    }
+
     // Root layout
     var layout = createEl("div", "eui-layout");
     var sidebar = createEl("div", "eui-sidebar");
     var main = createEl("div", "eui-main");
 
-    // Brand
+    // ── Brand ──
     var brand = createEl("div", "eui-sidebar-brand");
-    if (opts.brandIcon) {
+    if (opts.brandImage) {
       var brandImg = createEl("img");
-      brandImg.src = opts.brandIcon;
+      brandImg.src = opts.brandImage;
       brandImg.alt = "";
-      brandImg.width = 24;
-      brandImg.height = 24;
+      brandImg.width = 22;
+      brandImg.height = 22;
       brand.appendChild(brandImg);
+    } else if (opts.brandIcon) {
+      if (opts.brandIcon.charAt(0) === "<") {
+        // SVG string
+        var wrap = document.createElement("span");
+        wrap.innerHTML = opts.brandIcon;
+        while (wrap.firstChild) brand.appendChild(wrap.firstChild);
+      } else {
+        // URL path
+        var brandImg = createEl("img");
+        brandImg.src = opts.brandIcon;
+        brandImg.alt = "";
+        brandImg.width = 24;
+        brandImg.height = 24;
+        brand.appendChild(brandImg);
+      }
     }
     var brandTitle = createEl("span", "eui-sidebar-title", opts.brandTitle || "Settings");
     brand.appendChild(brandTitle);
     sidebar.appendChild(brand);
 
-    // Nav
+    // ── Nav ──
     var nav = createEl("ul", "eui-nav");
     var tabs = opts.tabs || [];
-
     var currentTab = opts.defaultTab || (tabs.length ? tabs[0].id : null);
 
     tabs.forEach(function (tab) {
@@ -108,16 +145,91 @@
         while (wrapper.firstChild) btn.appendChild(wrapper.firstChild);
       }
       btn.appendChild(createEl("span", null, tab.label));
-
-      btn.addEventListener("click", function () {
-        self.switchTab(tab.id);
-      });
-
+      btn.addEventListener("click", function () { self.switchTab(tab.id); });
       li.appendChild(btn);
       nav.appendChild(li);
     });
 
     sidebar.appendChild(nav);
+
+    // ── My Extensions (auto-discover via management API) ──
+    if (opts.showMyExtensions) {
+      var extSection = createEl("div", "eui-sidebar-extensions");
+      var extToggle = createEl("button", "eui-ext-toggle");
+      extToggle.type = "button";
+      extToggle.innerHTML = '<span>My Extensions</span><svg class="eui-ext-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      extSection.appendChild(extToggle);
+
+      var extList = createEl("div", "eui-ext-list");
+      extList.appendChild(createEl("span", "eui-ext-loading", "Loading\u2026"));
+      extSection.appendChild(extList);
+      sidebar.appendChild(extSection);
+
+      // Collapsible toggle
+      extToggle.addEventListener("click", function () {
+        var isHidden = extList.style.display === "none";
+        extList.style.display = isHidden ? "" : "none";
+        extToggle.classList.toggle("eui-ext-collapsed", !isHidden);
+      });
+
+      // Auto-discover other extensions
+      (function () {
+        try {
+          if (typeof browser !== "undefined" && browser.management && browser.management.getAll) {
+            browser.management.getAll().then(function (extensions) {
+              extList.textContent = "";
+              var others = extensions
+                .filter(function (e) {
+                  return e.type === "extension" && e.id !== browser.runtime.id && e.enabled;
+                })
+                .sort(function (a, b) { return a.name.localeCompare(b.name); });
+
+              if (others.length === 0) {
+                extList.appendChild(createEl("span", "eui-ext-empty", "No other extensions found."));
+                return;
+              }
+
+              others.forEach(function (ext) {
+                var item = createEl("div", "eui-ext-item");
+                var icon = ext.icons && ext.icons.length ? ext.icons.sort(function (a, b) { return a.size - b.size; })[0] : null;
+                if (icon) {
+                  var img = createEl("img");
+                  img.src = icon.url;
+                  img.width = 16;
+                  img.height = 16;
+                  img.alt = "";
+                  item.appendChild(img);
+                } else {
+                  var dot = createEl("span", "eui-ext-dot");
+                  item.appendChild(dot);
+                }
+                item.appendChild(createEl("span", "eui-ext-name", ext.name));
+                extList.appendChild(item);
+              });
+            });
+          }
+        } catch (e) {
+          extList.textContent = "";
+          extList.appendChild(createEl("span", "eui-ext-fallback", "Enable the 'management' permission to list your extensions."));
+        }
+      })();
+    }
+
+    // ── Creator link ──
+    if (opts.creatorLink) {
+      var creatorDiv = createEl("div", "eui-sidebar-creator");
+      var creatorA = createEl("a");
+      creatorA.href = opts.creatorLink;
+      creatorA.target = "_blank";
+      creatorA.rel = "noopener";
+      creatorA.textContent = (opts.creatorName || "Creator Profile") + " ";
+      var arrowWrap = document.createElement("span");
+      arrowWrap.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+      while (arrowWrap.firstChild) creatorA.appendChild(arrowWrap.firstChild);
+      creatorDiv.appendChild(creatorA);
+      sidebar.appendChild(creatorDiv);
+    }
+
     layout.appendChild(sidebar);
     layout.appendChild(main);
 
@@ -128,10 +240,8 @@
     self._navBtns = nav.querySelectorAll(".eui-nav-btn");
     self._tabChangeCallbacks = [];
 
-    // Public: switch tab
     self.switchTab = function (id) {
       self._navBtns.forEach(function (b) { b.classList.toggle("active", b.dataset.tab === id); });
-      // Hide all direct children of main (tab panels)
       var panels = main.children;
       for (var i = 0; i < panels.length; i++) {
         panels[i].style.display = panels[i].id === "eui-tab-" + id ? "block" : "none";
@@ -140,7 +250,6 @@
       self._tabChangeCallbacks.forEach(function (cb) { cb(id); });
     };
 
-    // Public: listen for tab changes
     self.onTabChange = function (cb) {
       self._tabChangeCallbacks.push(cb);
     };
@@ -1857,6 +1966,128 @@
   }
 
   /* ═══════════════════════════════════════════════════════════
+     STAR RATING
+     ═══════════════════════════════════════════════════════════ */
+
+  function createStarRating(rating, reviews) {
+    var wrap = createEl("div", "eui-amo-rating");
+    if (rating === null || rating === undefined) {
+      wrap.appendChild(createEl("span", "eui-amo-no-rating", "No ratings"));
+    } else {
+      var stars = createEl("span", "eui-amo-stars");
+      var rounded = Math.round(rating);
+      for (var i = 1; i <= 5; i++) {
+        stars.appendChild(createEl("span", "eui-amo-star" + (i <= rounded ? " eui-amo-star-filled" : "")));
+      }
+      wrap.appendChild(stars);
+      var label = createEl("span", "eui-amo-rating-label", rating + "/5");
+      if (reviews > 0) label.textContent += " (" + reviews + ")";
+      wrap.appendChild(label);
+    }
+    return wrap;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     AMO ADDON LIST
+     ═══════════════════════════════════════════════════════════ */
+
+  /**
+   * opts.container  — parent element
+   * opts.profile    — { avatar, name, subtitle, badge?, linkUrl?, linkLabel? }
+   * opts.addons     — [ { name, description, icon, url, users, rating?, reviews? } ]
+   */
+  function createAddonList(opts) {
+    var section = createEl("section", "eui-amo-section");
+
+    // ── Profile header ──
+    var profile = opts.profile || {};
+    var profileEl = createEl("div", "eui-amo-profile");
+
+    if (profile.avatar) {
+      var avatar = createEl("img", "eui-amo-avatar");
+      avatar.src = profile.avatar;
+      avatar.alt = "";
+      profileEl.appendChild(avatar);
+    }
+
+    var info = createEl("div", "eui-amo-profile-info");
+    if (profile.badge) info.appendChild(createEl("span", "eui-amo-badge", profile.badge));
+    info.appendChild(createEl("h3", "eui-amo-name", profile.name || ""));
+    if (profile.subtitle) info.appendChild(createEl("p", "eui-amo-subtitle", profile.subtitle));
+    profileEl.appendChild(info);
+
+    if (profile.linkUrl) {
+      var link = createEl("a", "eui-amo-profile-link");
+      link.href = profile.linkUrl;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = profile.linkLabel || "View Profile ";
+      var arrowSvg = document.createElement("span");
+      arrowSvg.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+      while (arrowSvg.firstChild) link.appendChild(arrowSvg.firstChild);
+      profileEl.appendChild(link);
+    }
+
+    section.appendChild(profileEl);
+
+    // ── Addon cards ──
+    var list = createEl("ul", "eui-amo-list");
+    var totalUsers = 0;
+    var totalReviews = 0;
+    var ratedCount = 0;
+
+    (opts.addons || []).forEach(function (addon) {
+      totalUsers += addon.users || 0;
+      if (addon.rating !== null && addon.rating !== undefined) {
+        ratedCount++;
+        totalReviews += addon.reviews || 0;
+      }
+
+      var li = createEl("li", "eui-amo-card");
+      var cardLink = createEl("a", "eui-amo-card-link");
+      cardLink.href = addon.url || "#";
+      if (addon.url) { cardLink.target = "_blank"; cardLink.rel = "noopener"; }
+
+      var iconWrap = createEl("div", "eui-amo-card-icon");
+      if (addon.icon) {
+        var img = createEl("img");
+        img.src = addon.icon;
+        img.alt = addon.name || "";
+        img.loading = "lazy";
+        iconWrap.appendChild(img);
+      }
+      cardLink.appendChild(iconWrap);
+
+      var content = createEl("div", "eui-amo-card-content");
+      content.appendChild(createEl("h4", "eui-amo-card-name", addon.name || ""));
+      content.appendChild(createEl("p", "eui-amo-card-desc", addon.description || ""));
+      content.appendChild(createStarRating(addon.rating || null, addon.reviews || 0));
+      cardLink.appendChild(content);
+
+      var usersDiv = createEl("div", "eui-amo-card-users");
+      usersDiv.textContent = (addon.users || 0) + " users";
+      cardLink.appendChild(usersDiv);
+
+      li.appendChild(cardLink);
+      list.appendChild(li);
+    });
+
+    section.appendChild(list);
+
+    // ── Footer stats ──
+    var footer = createEl("div", "eui-amo-footer");
+    var addonCount = (opts.addons || []).length;
+    footer.textContent = addonCount + " add-on" + (addonCount !== 1 ? "s" : "") +
+      " \u00B7 " + totalUsers.toLocaleString() + " total users" +
+      " \u00B7 " + totalReviews + " review" + (totalReviews !== 1 ? "s" : "") +
+      " across " + ratedCount + " rated";
+    section.appendChild(footer);
+
+    if (opts.container) opts.container.appendChild(section);
+    return section;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
      EXPORT NAMESPACE
      ═══════════════════════════════════════════════════════════ */
 
@@ -1890,6 +2121,8 @@
     createQuickActions: createQuickActions,
     createSearchBar: createSearchBar,
     createColorPicker: createColorPicker,
+    createStarRating: createStarRating,
+    createAddonList: createAddonList,
 
     // Helpers
     timeAgo: timeAgo,
